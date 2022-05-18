@@ -25,30 +25,29 @@ transform_test = transforms.Compose([
 cifar10_train = datasets.CIFAR10('~/Datasets/CIFAR10/train', download=True, train=True, transform=transform_train)
 cifar10_test = datasets.CIFAR10('~/Datasets/CIFAR10/test',download=True, train=False, transform=transform_test)
 
+num_classes = float(len(cifar10_train.classes))
+imbalance_ratio = 100.0
+imbalance_factor = math.exp(-math.log(imbalance_ratio)/(num_classes-1))
 
-def create_lt_dataset(imbalance_ratio, dataset):
-  num_classes = float(len(dataset.classes))
-  imbalance_factor = math.exp(-math.log(imbalance_ratio)/(num_classes-1))
 
-  num_samples_0 = dataset.targets.count(0)
-  all_indexes_seperate = []
-  pi_list = []
-  for i in range(10): # 10 classes
-    num_samples_i = int(num_samples_0 * (imbalance_factor)**(i))
-    i_indexes = [k for k, j in enumerate(dataset.targets) if j == i]
-    sample_indexes = random.sample(i_indexes, num_samples_i)
-    all_indexes_seperate.append(sample_indexes)
-    pi_list.append(len(sample_indexes))
 
-  all_indexes = sum(all_indexes_seperate, []) # collapse list
-  sampled_images = dataset.data[all_indexes] 
-  sampled_targets = np.array(dataset.targets)[all_indexes]
-  pi_list_tensor = torch.tensor(pi_list) / len(all_indexes)
-  log_prob_tensor = torch.log(pi_list_tensor)
-  dataset.data = sampled_images
-  dataset.targets = list(sampled_targets)
+num_samples_0 = cifar10_train.targets.count(0)
+all_indexes_seperate = []
+pi_list = []
+for i in range(10): # 10 classes
+  num_samples_i = int(num_samples_0 * (imbalance_factor)**(i))
+  i_indexes = [k for k, j in enumerate(cifar10_train.targets) if j == i]
+  sample_indexes = random.sample(i_indexes, num_samples_i)
+  all_indexes_seperate.append(sample_indexes)
+  pi_list.append(len(sample_indexes))
 
-  return dataset
+all_indexes = sum(all_indexes_seperate, []) # collapse list
+sampled_images = cifar10_train.data[all_indexes] 
+sampled_targets = np.array(cifar10_train.targets)[all_indexes]
+pi_list_tensor = torch.tensor(pi_list) / len(all_indexes)
+log_prob_tensor = torch.log(pi_list_tensor)
+cifar10_train.data = sampled_images
+cifar10_train.targets = list(sampled_targets)
 
 config = dict(
         epochs = 200,
@@ -56,13 +55,12 @@ config = dict(
         batch_size = 128,
         lr = 0.1,
         imbalance_ratio = 100,
-        train_dataset = cifar10_train,
-        test_dataset = cifar10_test
-        model = resnet32(),
-        loss = nn.CrossEntropyLoss()
         training_method = "vanilla",
-        testing_method = "vanilla",
-)
+        testing_method = "vanilla")
+
+model_res = resnet32()
+loss = nn.CrossEntropyLoss()
+
 
 def model_pipeline(hyperparameters):
 
@@ -76,7 +74,7 @@ def model_pipeline(hyperparameters):
       # print(model)
 
       # and use them to train the model
-      train(model, train_loader, criterion, optimizer, config)
+      train(model, train_loader, criterion, optimizer, scheduler, config)
 
       # and test its final performance
       test(model, test_loader)
@@ -86,15 +84,15 @@ def model_pipeline(hyperparameters):
 def make(config):
     # Make the data
     # train, test = get_data(train=True), get_data(train=False)
-    train, test = create_lt_dataset(config.imbalance_ratio, config.train_dataset), config.test_dataset
+    train, test = cifar10_train, cifar10_test
     train_loader = torch.utils.data.DataLoader(train, batch_size=config.batch_size, shuffle = True)
     test_loader = torch.utils.data.DataLoader(test, batch_size=config.batch_size, shuffle = True)
 
     # Make the model
-    model = config.model.to(device)
+    model = model_res
 
     # Make the loss and optimizer
-    criterion = config.loss
+    criterion = loss
     optimizer = torch.optim.SGD(model.parameters(), lr=config.lr, momentum = 0.9, weight_decay=1e-4)
     scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones = [160, 180], gamma = 0.1)
     
@@ -119,11 +117,13 @@ def train(model, loader, criterion, optimizer, scheduler, config):
             if ((batch_ct + 1) % 25) == 0:
                 train_log(loss, example_ct, epoch)
         scheduler.step()
+        test(model, testloader)
 
 
 
 def train_batch(images, labels, model, optimizer, criterion):
     images, labels = images.to(device), labels.to(device)
+    model.to(device)
     
     # Forward pass ➡
     outputs = model(images)
@@ -138,6 +138,32 @@ def train_batch(images, labels, model, optimizer, criterion):
 
     return loss
 
+def train_log(loss, example_ct, epoch):
+    # Where the magic happens
+    wandb.log({"epoch": epoch, "loss": loss}, step=example_ct)
+    print(f"Loss after " + str(example_ct).zfill(5) + f" examples: {loss:.3f}")
+
+def test(model, test_loader):
+    model.eval()
+
+    # Run the model on some test examples
+    with torch.no_grad():
+        correct, total = 0, 0
+        for images, labels in test_loader:
+            images, labels = images.to(device), labels.to(device)
+            outputs = model(images)
+            _, predicted = torch.max(outputs.data, 1)
+            total += labels.size(0)
+            correct += (predicted == labels).sum().item()
+
+        print(f"Accuracy of the model on the {total} " +
+              f"test images: {100 * correct / total}%")
+        
+        wandb.log({"test_accuracy": correct / total})
+
+    # Save the model in the exchangeable ONNX format
+    # torch.onnx.export(model, images, "model.onnx")
+    # wandb.save("model.onnx")
 
 trainloader = torch.utils.data.DataLoader(cifar10_train, batch_size=16, shuffle=True)
 testloader =  torch.utils.data.DataLoader(cifar10_test, batch_size=64, shuffle=True)
@@ -148,7 +174,7 @@ scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones = [160, 1
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 num_epochs = 200
-
+model = model_pipeline(config)
 
 def Vanilla_training(trainloader, criterion, model, optimizer, scheduler):
   print('Vanilla training')
@@ -241,5 +267,5 @@ def adjusted_loss_training(trainloader, criterion, model, optimizer, scheduler, 
 # Vanilla_training(trainloader, criterion, model, optimizer, scheduler)
 # test(testloader, model)
 # test_posthoc(testloader, model, temp, log_prob_tensor)
-adjusted_loss_training(trainloader, criterion, model, optimizer, scheduler, temp, log_prob_tensor)
-test(testloader, model)
+# adjusted_loss_training(trainloader, criterion, model, optimizer, scheduler, temp, log_prob_tensor)
+# test(testloader, model)

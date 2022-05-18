@@ -1,0 +1,24 @@
+{
+    "os": "Linux-5.13.0-28-generic-x86_64-with-glibc2.31",
+    "python": "3.9.12",
+    "heartbeatAt": "2022-05-18T03:42:58.861036",
+    "startedAt": "2022-05-18T03:42:57.467623",
+    "docker": null,
+    "gpu": "NVIDIA GeForce GTX 1650 Ti",
+    "gpu_count": 1,
+    "cpu_count": 12,
+    "cuda": null,
+    "args": [],
+    "state": "running",
+    "program": "/home/apoorva/Desktop/VAL/experiments/logit-adjustment/logit_adjustment_wandb.py",
+    "codePath": "logit-adjustment/logit_adjustment_wandb.py",
+    "git": {
+        "remote": "https://github.com/apoorvaverma31/experiments.git",
+        "commit": "9c148e174b0dd76ff68cc2d7ac484624409c36f0"
+    },
+    "email": "mrapoorvaverma31@gmail.com",
+    "root": "/home/apoorva/Desktop/VAL/experiments",
+    "host": "apoorva-omen-15",
+    "username": "apoorva",
+    "executable": "/home/apoorva/Anaconda3/envs/val/bin/python"
+}
