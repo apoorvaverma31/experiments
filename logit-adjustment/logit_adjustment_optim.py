@@ -6,7 +6,7 @@ from torchvision import datasets, transforms, models
 import numpy as np
 import random
 import matplotlib.pyplot as plt
-from resnet import resnet32
+from resnet32 import resnet32
 import wandb
 wandb.login(key= "3ab0ccc1e73901e7d78c5af7de65194191805602")
 from collections import Counter
