@@ -110,8 +110,8 @@ def resnet32(num_classes=10):
 
 if __name__ == "__main__":
     import torch
-    from pytorch_model_summary import summary
+    # from pytorch_model_summary import summary
 
     net = resnet32(10)
     rand_inp = torch.rand((1, 3, 32, 32))
-    summary(net, rand_inp, print_summary=True, max_depth=3, show_parent_layers=True)
+    # summary(net, rand_inp, print_summary=True, max_depth=3, show_parent_layers=True)
