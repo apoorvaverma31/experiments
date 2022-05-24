@@ -55,6 +55,7 @@ sampler = torch.utils.data.WeightedRandomSampler(weights= (1/pi_list_tensor)**0.
 trainloader = torch.utils.data.DataLoader(cifar10_train, batch_size=128,  num_workers=8, sampler=sampler)
 testloader =  torch.utils.data.DataLoader(cifar10_test, batch_size=512, shuffle=True, num_workers=8)
 model = resnet32()
+# model = nn.DataParallel(model)
 criterion = nn.CrossEntropyLoss()
 optimizer = torch.optim.SGD(model.parameters(), lr=0.1, momentum = 0.9, weight_decay=1e-4)
 scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones = [800, 950, 1100], gamma = 0.1)
