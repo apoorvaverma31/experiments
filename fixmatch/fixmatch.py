@@ -39,16 +39,16 @@ def make_dataset(train_data, num_labeled):
 
   return train_data
 
-class UnlabeledCIFAR10Train(Dataset):
-  def __init__(self, root_dir, num_samples, transform=None):
-    self.root_dir=root_dir
-    self.transform=transform
-    self.num_samples = num_samples
+# class UnlabeledCIFAR10Train(Dataset):
+#   def __init__(self, root_dir, num_samples, transform=None):
+#     self.root_dir=root_dir
+#     self.transform=transform
+#     self.num_samples = num_samples
   
-  def __len__(self):
-    return self.num_samples
+#   def __len__(self):
+#     return self.num_samples
   
-  def __getitem__(self, index):
+#   def __getitem__(self, index):
       
   
 
@@ -75,7 +75,7 @@ def train(model, trainloader, criterion, optimizer, scheduler, device, testloade
       optimizer.step()
     
     scheduler.step()
-    wandb.log({"Loss":loss})
+    wandb.log({"Training Loss":loss})
     print ('Epoch [{}/{}], Loss: {:.4f}'.format(epoch+1, config.num_epochs, loss.item()))
     model.eval()
     test(model, device, testloader)
@@ -103,7 +103,7 @@ def main():
   model = build_wideresnet(28, 2, 0, 10)
   criterion = nn.CrossEntropyLoss()
   optimizer = torch.optim.SGD(model.parameters(), lr=config.lr, momentum = config.momentum, weight_decay=config.weight_decay)
-  scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones = [150,180], gamma = 0.1)
+  scheduler = torch.optim.lr_scheduler.LinearLR(optimizer, end_factor=0.01)
   device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
   train(model, trainloader, criterion, optimizer, scheduler, device, testloader)
 
