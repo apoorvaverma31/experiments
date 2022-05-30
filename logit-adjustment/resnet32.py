@@ -1,3 +1,4 @@
+import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.nn.init as init
@@ -79,6 +80,7 @@ class ResNet(nn.Module):
         self.layer3 = self._make_layer(num_layers[2], filters[2], strides[2])
         self.bn2 = batch_norm2d(self.in_planes)
         self.linear = nn.Linear(filters[2], num_classes)
+        self.lin_norm = nn.Parameter(torch.linalg.norm(self.linear.weight, dim=1, keepdim=True))
         self.act = nn.ReLU()
         self.apply(_weights_init)
 
@@ -100,8 +102,13 @@ class ResNet(nn.Module):
         out = self.bn2(out)
         out = F.avg_pool2d(out, out.size()[3])
         out = out.view(out.size(0), -1)
+        # self.linear.weight = nn.Parameter(self.linear.weight/self.lin_norm)
         out = self.linear(out)
         return out
+    
+    def classifier_weight_norm(self, tau):
+        self.linear.weight = nn.Parameter(self.linear.weight/(self.lin_norm**tau))
+        return self
 
 
 def resnet32(num_classes=10):
