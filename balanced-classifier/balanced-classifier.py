@@ -1,3 +1,4 @@
+from pyexpat import model
 import torch 
 import torch.nn as nn
 import torch.nn.functional as F
@@ -11,7 +12,7 @@ import wandb
 import math
 from collections import Counter
 wandb.login(key= "3ab0ccc1e73901e7d78c5af7de65194191805602")
-wandb.init(project="balanced classifier", name="baseline", config={"num_epochs":200, "batch_size":128,
+wandb.init(project="balanced classifier", name="finetune", config={"num_epochs":200, "batch_size":128,
          "lr":0.1, "momentum":0.9, "weight_decay":0.0001, "num_epochs_fine":25}) # set mode="disabled" to not track logs
 config = wandb.config
 
@@ -41,8 +42,8 @@ def get_loaders(train_data, test_data):
   testloader =  torch.utils.data.DataLoader(test_data, batch_size=512, shuffle=True, num_workers=8, drop_last=True)
   return trainloader, testloader
 
-def train(model, trainloader, criterion, optimizer, scheduler, device, testloader):
-  for epoch in range(config.num_epochs):
+def train(model, trainloader, criterion, optimizer, scheduler, device, testloader, num_epochs):
+  for epoch in range(num_epochs):
     for images, labels in trainloader:
       images, labels = images.to(device), labels.to(device)
       model.to(device)
@@ -56,7 +57,7 @@ def train(model, trainloader, criterion, optimizer, scheduler, device, testloade
     
     scheduler.step()
     wandb.log({"Training Loss":loss, 'epoch':epoch})
-    print ('Epoch [{}/{}], Loss: {:.4f}'.format(epoch+1, config.num_epochs, loss.item()))
+    print ('Epoch [{}/{}], Loss: {:.4f}'.format(epoch+1, num_epochs, loss.item()))
     model.eval()
     test(model, device, testloader)
     model.train()
@@ -115,7 +116,21 @@ def main():
     scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones = [150, 180], gamma = 0.1)
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     wandb.watch(model, log='all')
-    train(model, trainloader, criterion, optimizer, scheduler, device, testloader)
+    print("Joint Training")
+    print("*************************************************")
+    train(model, trainloader, criterion, optimizer, scheduler, device, testloader, config.num_epochs)
+    
+    
+    torch.save(model, 'checkpoint')
+    for param in model.parameters():
+      param.requires_grad = False
+    model.linear = nn.Linear(64, 10)
+    print("Finetuning")
+    print("*************************************************")
+    train(model, trainloader, criterion, optimizer, scheduler, device, testloader, config.num_epochs_fine)
 
+    
 if (__name__=="__main__"):
-  main()
+  # main()
+  model = torch.load('checkpoint')
+  print(model)
