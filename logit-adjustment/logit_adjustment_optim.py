@@ -64,10 +64,10 @@ model = resnet32()
 # model = nn.DataParallel(model)
 criterion = nn.CrossEntropyLoss()
 optimizer = torch.optim.SGD(model.parameters(), lr=0.1, momentum = 0.9, weight_decay=1e-4)
-scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones = [800, 950, 1100], gamma = 0.1)
+scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones = [120, 135], gamma = 0.1)
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-num_epochs = 1200
+num_epochs = 150
 temp = 1.5
 
 
@@ -129,8 +129,8 @@ def test(testloader, model, epoch):
   cm = confusion_matrix(list(truths), list(preds))
 
   wandb.log({'Vanilla Test Accuracy': 100 * correct / total, 'epoch':epoch})
-  # list_logger(f1_score(truths, preds, average=None))
-  wandb.log({'Class-wise accuracy':cm.diagonal()/cm.sum(axis=1)})
+  print('f1_score: ',f1_score(truths, preds, average=None))
+  print('Class-wise accuracy',cm.diagonal()/cm.sum(axis=1))
   print('Accuracy:', 100*correct/total)
 
 def test_posthoc(testloader, model, temp, log_prob, epoch):
@@ -195,6 +195,6 @@ if(__name__ == '__main__'):
     ERM(trainloader, criterion, model, optimizer, scheduler, testloader)
     posthoc = model.classifier_weight_norm(1.5)
     test(testloader, posthoc, 1201)
-    # print(model.lin_norm.shape)
     
-    # adjusted_loss_(trainloader, criterion, model, optimizer, scheduler, temp, log_prob_tensor)
+    
+    

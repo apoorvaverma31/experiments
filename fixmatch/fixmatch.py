@@ -10,7 +10,7 @@ import random
 import numpy as np
 import wandb
 wandb.login(key= "3ab0ccc1e73901e7d78c5af7de65194191805602")
-wandb.init(project="fixmatch", name="ERM_supervised_3", config={"num_epochs":200, "batch_size":64, "lr":0.03, "momentum":0.9, "weight_decay":0.005, "pl_threshold":0.95,        "l_ul_ratio":7,
+wandb.init(project="fixmatch", name="ERM_supervised_2", config={"num_epochs":200, "batch_size":64, "lr":0.03, "momentum":0.9, "weight_decay":0.005, "pl_threshold":0.95,        "l_ul_ratio":7,
           "uloss_wt":1, "num_labeled":25}) # set mode="disabled" to not track logs
 config = wandb.config
 
@@ -105,6 +105,7 @@ def main():
   optimizer = torch.optim.SGD(model.parameters(), lr=config.lr, momentum = config.momentum, weight_decay=config.weight_decay)
   scheduler = torch.optim.lr_scheduler.LinearLR(optimizer, end_factor=0.01)
   device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+  wandb.watch(model, log='all')
   train(model, trainloader, criterion, optimizer, scheduler, device, testloader)
 
 if (__name__=="__main__"):
