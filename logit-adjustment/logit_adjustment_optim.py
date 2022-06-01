@@ -7,6 +7,7 @@ import numpy as np
 import random
 import matplotlib.pyplot as plt
 from resnet32 import resnet32
+from os import path
 import wandb
 wandb.login(key= "3ab0ccc1e73901e7d78c5af7de65194191805602")
 from sklearn.metrics import f1_score, confusion_matrix
@@ -190,12 +191,9 @@ def plot(X, y, title, x_label, y_label):
 
 
 if(__name__ == '__main__'):
-    wandb.init(project="diff_tailed_performance", name="PostHoc_Balanced_Test")
+    wandb.init(project="differential_tail", name="PostHoc_Balanced_Test", mode="disabled")
     wandb.watch(model, log='all')
     ERM(trainloader, criterion, model, optimizer, scheduler, testloader)
-    # posthoc = model.classifier_weight_norm(1)
-    # print('posthoc correction')
-    # print(model.linear.weight)
-    # test(testloader, posthoc, 1201)    
-
-    # comment1
+    print('classifer normalized')
+    model.classifier_weight_norm(1.5)
+    test(testloader, model, 1)

@@ -169,10 +169,11 @@ transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
 transforms.ToTensor(),
 transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
 ])
-  model = models.resnet34(pretrained=True)
-
-  for param in model.parameters():
-      param.requires_grad = False
+  model = models.resnet34(pretrained=True, requires_grad= False)
+  # set_parameter_requires_grad(model, feature_extract=True) 
+  
+  # for param in model.parameters():
+  #     param.requires_grad = False
   
   n = model.fc.in_features
 
@@ -184,12 +185,14 @@ transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
       return x
   model.fc = nn.Linear(n, 10)
   model.avgpool = Identity()
-
+  # set_parameter_requires_grad(model_ft, feature_extract)  
   print(model)
   cifar10_train = datasets.CIFAR10('/workspace/Datasets/CIFAR10/train', download=False, train=True, transform=transform_train)
   cifar10_test = datasets.CIFAR10('/workspace/Datasets/CIFAR10/test',download=False, train=False, transform=transform_test)
   cifar10_train, pi_tensor = make_lt_dataset(cifar10_train, 100)
   trainloader, testloader = get_loaders(cifar10_train, cifar10_test)
+  img, _ = next(iter(trainloader))
+  # print(img.shape)
   finetune_loader = get_balanced_loader(cifar10_train, pi_tensor)
   criterion = nn.CrossEntropyLoss()
   optimizer = torch.optim.SGD(model.parameters(), lr=config.lr, momentum = config.momentum, weight_decay=config.weight_decay)

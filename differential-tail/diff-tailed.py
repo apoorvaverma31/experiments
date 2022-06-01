@@ -6,14 +6,15 @@ from torch.utils.data import Dataset
 from torchvision import datasets, transforms, models
 from resnet32 import resnet32
 import random
+from os import path
 from sklearn.metrics import f1_score, confusion_matrix
 import numpy as np
 import wandb
 import math
 from collections import Counter
 wandb.login(key= "3ab0ccc1e73901e7d78c5af7de65194191805602")
-wandb.init(project="differential_tail", name="BalancedSampling_Inv_LT_Test", config={"num_epochs":200, "batch_size":128,
-         "lr":0.1, "momentum":0.9, "weight_decay":0.0001}) # set mode="disabled" to not track logs
+wandb.init(project="differential_tail", name="WeightNorm_Balanced_Test", config={"num_epochs":200, "batch_size":128,
+         "lr":0.1, "momentum":0.9, "weight_decay":0.0001}, mode="disabled") # set mode="disabled" to not track logs
 config = wandb.config
 
 
@@ -95,8 +96,9 @@ def test(model, device, testloader, epoch, pi_list=None, temp=None):
         outputs = model(images)
       
       if(pi_list is not None and temp is not None):
-        logits = outputs.data - (temp * torch.log(pi_list)).to(device) 
-
+        logits = outputs.data - (temp * torch.log(pi_list)).to(device)
+      else:
+        logits = outputs.data 
 
       _, predicted = torch.max(logits, 1)
       total += labels.size(0)
@@ -139,17 +141,29 @@ def main():
     cifar10_train = datasets.CIFAR10('/workspace/Datasets/CIFAR10/train', download=False, train=True, transform=transform_train)
     cifar10_test = datasets.CIFAR10('/workspace/Datasets/CIFAR10/test',download=False, train=False, transform=transform_test)
     cifar10_train, pi_tensor = make_lt_dataset(cifar10_train, 100)
-    cifar10_test, _ = make_lt_dataset(cifar10_test, 100, inv=True)
-    sampler = get_sampler(cifar10_train, pi_tensor)
-    y_sampled = [cifar10_train.targets[i] for i in list(sampler)]
-    trainloader, testloader = get_loaders(cifar10_train, cifar10_test, sampler)
+    # cifar10_test, _ = make_lt_dataset(cifar10_test, 100, inv=True)
+    trainloader, testloader = get_loaders(cifar10_train, cifar10_test)
     model = resnet32()
     criterion = nn.CrossEntropyLoss()
     optimizer = torch.optim.SGD(model.parameters(), lr=config.lr, momentum = config.momentum, weight_decay=config.weight_decay)
     scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones = [150, 180], gamma = 0.1)
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     wandb.watch(model, log='all')
-    train(model, trainloader, criterion, optimizer, scheduler, device, testloader, config.num_epochs, pi_tensor, 1.5)
+    if(path.exists('checkpoint')):
+      model.load_state_dict(torch.load('checkpoint'))
+      print('model loaded')
+    else:
+      print("Training")
+      print("*************************************************")
+      train(model, trainloader, criterion, optimizer, scheduler, device, testloader, config.num_epochs)
+          
+      torch.save(model, 'checkpoint')
+
+    
+    print('classifer normalized')
+    model.classifier_weight_norm(1.5)
+    test(model, device, testloader, 1, pi_list=None, temp=None)
+
    
 if (__name__=="__main__"):
   main()
