@@ -1,4 +1,4 @@
-from pyexpat import model
+# from pyexpat import model
 import torch 
 import torch.nn as nn
 import torch.nn.functional as F
@@ -14,7 +14,7 @@ import math
 from collections import Counter
 wandb.login(key= "3ab0ccc1e73901e7d78c5af7de65194191805602")
 wandb.init(project="differential_tail", name="WeightNorm_Balanced_Test", config={"num_epochs":200, "batch_size":128,
-         "lr":0.1, "momentum":0.9, "weight_decay":0.0001}, mode="disabled") # set mode="disabled" to not track logs
+         "lr":0.1, "momentum":0.9, "weight_decay":0.0001, "num_epochs_fine":30}) # set mode="disabled" to not track logs
 config = wandb.config
 
 
@@ -122,7 +122,20 @@ def test(model, device, testloader, epoch, pi_list=None, temp=None):
   print('Mid Classes Accuracy:', 100 * np.average(classwise_accuracy[4:7]))
   print('Tail Classes Accuracy:', 100 * np.average(classwise_accuracy[7:10]))
   print('Classwise Accuracy: ', classwise_accuracy)
-  # print('f1 score: ',f1_score(truths, preds, average=None))
+  # print('f1 score: ',f1_score(truths, preds, average=None))\
+
+
+def get_balanced_loader(train_data, pi_tensor):
+  y_train = [train_data.targets[i] for i in np.arange(len(train_data.targets))]
+  b = []
+  for t in y_train:
+    b.append(pi_tensor[t])
+
+  sample_wts = np.array(b)
+
+  sampler = torch.utils.data.WeightedRandomSampler(weights= 1/sample_wts, num_samples = len(b), replacement = True)
+  balanced_loader = torch.utils.data.DataLoader(train_data, batch_size=config.batch_size, sampler=sampler,  num_workers=8)
+  return balanced_loader
 
 
 def main():
@@ -149,20 +162,30 @@ def main():
     scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones = [150, 180], gamma = 0.1)
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     wandb.watch(model, log='all')
-    if(path.exists('checkpoint')):
-      model.load_state_dict(torch.load('checkpoint'))
-      print('model loaded')
-    else:
-      print("Training")
-      print("*************************************************")
-      train(model, trainloader, criterion, optimizer, scheduler, device, testloader, config.num_epochs)
-          
-      torch.save(model, 'checkpoint')
+    # if(path.exists('checkpoint')):
+    #   model.load_state_dict(torch.load('checkpoint'))
+    #   print('model loaded')
+    #   test(model, device, testloader, 1)
+    # else:
+    print("Training")
+    print("*************************************************")
+    train(model, trainloader, criterion, optimizer, scheduler, device, testloader, config.num_epochs)
+        
+    torch.save(model.state_dict(), 'checkpoint')
+    
+    print("Finetuning")
+    print("*************************************************")
+    finetune_loader = get_balanced_loader(cifar10_train, pi_tensor)
+    optimizer_fine = torch.optim.SGD(model.linear.parameters(), lr=0.01, momentum = config.momentum, weight_decay=config.weight_decay)
+    train(model, finetune_loader, criterion, optimizer_fine, scheduler, device, testloader, config.num_epochs_fine)
+    
+    
+
 
     
-    print('classifer normalized')
-    model.classifier_weight_norm(1.5)
-    test(model, device, testloader, 1, pi_list=None, temp=None)
+    # print('classifer normalized')
+    # model.classifier_weight_norm(1.5)
+    # test(model, device, testloader, 1, pi_list=None, temp=None)
 
    
 if (__name__=="__main__"):

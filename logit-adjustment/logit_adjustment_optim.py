@@ -59,7 +59,7 @@ y_train = [cifar10_train.targets[i] for i in np.arange(len(cifar10_train.targets
 b = np.array([a[t] for t in y_train])
 sampler = torch.utils.data.WeightedRandomSampler(weights= b, num_samples = len(b), replacement = True)
 
-trainloader = torch.utils.data.DataLoader(cifar10_train, batch_size = 128,  num_workers=8, sampler=sampler)
+trainloader = torch.utils.data.DataLoader(cifar10_train, batch_size = 128,  num_workers=8, shuffle=True)
 testloader =  torch.utils.data.DataLoader(cifar10_test, batch_size=512, shuffle=True, num_workers=8, drop_last=True)
 model = resnet32()
 # model = nn.DataParallel(model)
@@ -68,7 +68,7 @@ optimizer = torch.optim.SGD(model.parameters(), lr=0.1, momentum = 0.9, weight_d
 scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones = [120, 135], gamma = 0.1)
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-num_epochs = 150
+num_epochs = 200
 temp = 1.5
 
 
@@ -99,8 +99,8 @@ def ERM(trainloader, criterion, model, optimizer, scheduler, testloader):
       wandb.log({"loss": loss, 'epoch':epoch})
       print ('ERM: Epoch [{}/{}], Loss: {:.4f}'.format(epoch+1, num_epochs, loss.item()))
       model.eval()
-      # test(testloader, model, epoch)
-      test_posthoc(testloader, model, temp, log_prob_tensor, epoch)    
+      test(testloader, model, epoch)
+      # test_posthoc(testloader, model, temp, log_prob_tensor, epoch)    
       model.train()
 
       
@@ -194,6 +194,7 @@ if(__name__ == '__main__'):
     wandb.init(project="differential_tail", name="PostHoc_Balanced_Test", mode="disabled")
     wandb.watch(model, log='all')
     ERM(trainloader, criterion, model, optimizer, scheduler, testloader)
+    torch.save(model.state_dict(), 'checkpoint')
     print('classifer normalized')
     model.classifier_weight_norm(1.5)
     test(testloader, model, 1)

@@ -13,7 +13,7 @@ import wandb
 import math
 from collections import Counter
 wandb.login(key= "3ab0ccc1e73901e7d78c5af7de65194191805602")
-wandb.init(project="balanced classifier", name="finetune", config={"num_epochs":200, "batch_size":128,
+wandb.init(project="balanced classifier", name="finetune_tsne", config={"num_epochs":200, "batch_size":128,
          "lr":0.1, "momentum":0.9, "weight_decay":0.0001, "num_epochs_fine":25}, mode="disabled") # set mode="disabled" to not track logs
 config = wandb.config
 
@@ -65,11 +65,12 @@ def train(model, trainloader, criterion, optimizer, scheduler, device, testloade
     scheduler.step()
     wandb.log({"Training Loss":loss, 'epoch':epoch})
     print ('Epoch [{}/{}], Loss: {:.4f}'.format(epoch+1, num_epochs, loss.item()))
-    model.eval()
     test(model, device, testloader)
     model.train()
+    
 
 def test(model, device, testloader):
+  model.eval()
   correct = 0
   total = 0
   preds = []
@@ -139,6 +140,8 @@ def main():
     if(path.exists('checkpoint')):
       model.load_state_dict(torch.load('checkpoint'))
       print('model loaded')
+      test(model, device, testloader)
+
 
     else:
       print("Joint Training")
@@ -147,56 +150,16 @@ def main():
           
       torch.save(model, 'checkpoint')
       
-    for param in model.parameters():
-      param.requires_grad = False
-    
-    model.linear = nn.Linear(64, 10)
+    # for param in model.parameters():
+    #   param.requires_grad = False
+    optimizer_fine = torch.optim.SGD(model.linear.parameters(), lr=0.01, momentum = config.momentum, weight_decay=config.weight_decay)
+
+    # model.linear = nn.Linear(64, 10)
     print("Finetuning")
     print("*************************************************")
     finetune_loader = get_balanced_loader(cifar10_train, pi_tensor)
-    train(model, finetune_loader, criterion, optimizer, scheduler, device, testloader, config.num_epochs_fine)
+    train(model, finetune_loader, criterion, optimizer_fine, scheduler, device, testloader, config.num_epochs_fine)
 
     
 if (__name__=="__main__"):
-  # main()
-  transform_train = transforms.Compose([
-transforms.RandomCrop(32, padding=4),
-transforms.RandomHorizontalFlip(),
-transforms.ToTensor(),
-transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
-])
-  transform_test = transforms.Compose([
-transforms.ToTensor(),
-transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
-])
-  model = models.resnet34(pretrained=True, requires_grad= False)
-  # set_parameter_requires_grad(model, feature_extract=True) 
-  
-  # for param in model.parameters():
-  #     param.requires_grad = False
-  
-  n = model.fc.in_features
-
-  class Identity(nn.Module):
-    def __init__(self):
-       super(Identity, self).__init__()
-
-    def forward(self, x):
-      return x
-  model.fc = nn.Linear(n, 10)
-  model.avgpool = Identity()
-  # set_parameter_requires_grad(model_ft, feature_extract)  
-  print(model)
-  cifar10_train = datasets.CIFAR10('/workspace/Datasets/CIFAR10/train', download=False, train=True, transform=transform_train)
-  cifar10_test = datasets.CIFAR10('/workspace/Datasets/CIFAR10/test',download=False, train=False, transform=transform_test)
-  cifar10_train, pi_tensor = make_lt_dataset(cifar10_train, 100)
-  trainloader, testloader = get_loaders(cifar10_train, cifar10_test)
-  img, _ = next(iter(trainloader))
-  # print(img.shape)
-  finetune_loader = get_balanced_loader(cifar10_train, pi_tensor)
-  criterion = nn.CrossEntropyLoss()
-  optimizer = torch.optim.SGD(model.parameters(), lr=config.lr, momentum = config.momentum, weight_decay=config.weight_decay)
-  scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones = [150, 180], gamma = 0.1)
-  device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-  train(model, finetune_loader, criterion, optimizer, scheduler, device, testloader, 100)
-
+  main()
