@@ -108,6 +108,8 @@ class ResNet(nn.Module):
     
     def classifier_weight_norm(self, tau):
         self.linear.weight = nn.Parameter(self.linear.weight/(self.lin_norm**tau))
+        
+        print('weight_matirx: ', torch.linalg.norm(self.linear.weight, dim=1, keepdim=True))
         return self
 
 

@@ -98,7 +98,7 @@ def ERM(trainloader, criterion, model, optimizer, scheduler, testloader):
       wandb.log({"loss": loss, 'epoch':epoch})
       print ('ERM: Epoch [{}/{}], Loss: {:.4f}'.format(epoch+1, num_epochs, loss.item()))
       model.eval()
-      test(testloader, model, epoch)
+      # test(testloader, model, epoch)
       test_posthoc(testloader, model, temp, log_prob_tensor, epoch)    
       model.train()
 
@@ -190,11 +190,12 @@ def plot(X, y, title, x_label, y_label):
 
 
 if(__name__ == '__main__'):
-    wandb.init(project="logit_adjustment_final", name="Weight norm t = 1.5", mode="disabled")
+    wandb.init(project="diff_tailed_performance", name="PostHoc_Balanced_Test")
     wandb.watch(model, log='all')
     ERM(trainloader, criterion, model, optimizer, scheduler, testloader)
-    posthoc = model.classifier_weight_norm(1.5)
-    test(testloader, posthoc, 1201)
-    
-    
-    
+    # posthoc = model.classifier_weight_norm(1)
+    # print('posthoc correction')
+    # print(model.linear.weight)
+    # test(testloader, posthoc, 1201)    
+
+    # comment1

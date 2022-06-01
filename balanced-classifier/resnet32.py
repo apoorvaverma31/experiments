@@ -121,4 +121,4 @@ if __name__ == "__main__":
 
     net = resnet32(10)
     rand_inp = torch.rand((1, 3, 32, 32))
-    # summary(net, rand_inp, print_summary=True, max_depth=3, show_parent_layers=True)
+    # summary(net, rand_inp, print_summary=True, max_depth=3, show_parent_layers=True)comment 1
