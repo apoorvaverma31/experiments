@@ -6,5 +6,5 @@
 |ERM|71.331|51.367|
 |Post-hoc Logit Adjustment|77.745|75.684|
 |Inverse Sampling|72.358|56.445|
-|Balanced Classifier| | |
-|Weight Normalization| | |
+|Balanced Classifier|78.071 | 61.035|
+|Weight Normalization|73.663| |

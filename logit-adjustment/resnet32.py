@@ -107,8 +107,11 @@ class ResNet(nn.Module):
         return out
     
     def classifier_weight_norm(self, tau):
+        print('before normalization weight norms')
+        print(torch.norm(self.linear.weight, dim=1, keepdim=True))
         normalized = F.normalize(self.linear.weight, dim=1)
         self.linear.weight = nn.Parameter(F.normalize(self.linear.weight, dim=1, p = tau))
+        print('post normalization weight norms')
         print(torch.norm(normalized, dim=1, keepdim=True))
         return self
 

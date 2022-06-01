@@ -13,35 +13,36 @@ import wandb
 import math
 from collections import Counter
 wandb.login(key= "3ab0ccc1e73901e7d78c5af7de65194191805602")
-wandb.init(project="balanced classifier", name="finetune_tsne", config={"num_epochs":200, "batch_size":128,
-         "lr":0.1, "momentum":0.9, "weight_decay":0.0001, "num_epochs_fine":25}, mode="disabled") # set mode="disabled" to not track logs
+wandb.init(project="balanced classifier", name="finetune_balanced_test", config={"num_epochs":200, "batch_size":128,
+         "lr":0.1, "momentum":0.9, "weight_decay":0.0001, "num_epochs_fine":25}) # set mode="disabled" to not track logs
 config = wandb.config
 
 
 
-def make_lt_dataset(train_data, imbalance_ratio):
+def make_lt_dataset(train_data, imbalance_ratio, inv=False):
+    pi_list = []
     num_samples_0 = train_data.targets.count(0)
     num_classes = float(len(train_data.classes))
     imbalance_factor = math.exp(-math.log(imbalance_ratio)/(num_classes-1))
-    pi_list = []
     all_indexes_seperate = []
     for i in range(10): # 10 
         i_indexes = [k for k, j in enumerate(train_data.targets) if j == i]
-        num_samples_i = int(num_samples_0 * (imbalance_factor)**(i))
+        if(inv):
+          num_samples_i = int(num_samples_0 * (imbalance_factor)**(9-i))
+        else:
+          num_samples_i = int(num_samples_0 * (imbalance_factor)**(i))
         sample_indexes = random.sample(i_indexes, num_samples_i)
-        all_indexes_seperate.append(sample_indexes)
         pi_list.append(len(sample_indexes))
-
+        all_indexes_seperate.append(sample_indexes)
         
     all_indexes = sum(all_indexes_seperate, []) # collapse list
     pi_list_tensor = torch.tensor(pi_list) / len(all_indexes)
-
     sampled_images = train_data.data[all_indexes] 
     sampled_targets = np.array(train_data.targets)[all_indexes]
     train_data.data = sampled_images
     train_data.targets = list(sampled_targets)
     return train_data, pi_list_tensor
-    
+
 
 
 def get_loaders(train_data, test_data):
@@ -129,6 +130,7 @@ def main():
     cifar10_train = datasets.CIFAR10('/workspace/Datasets/CIFAR10/train', download=False, train=True, transform=transform_train)
     cifar10_test = datasets.CIFAR10('/workspace/Datasets/CIFAR10/test',download=False, train=False, transform=transform_test)
     cifar10_train, pi_tensor = make_lt_dataset(cifar10_train, 100)
+    # cifar10_test, _ = make_lt_dataset(cifar10_test, 100, inv=True)
     trainloader, testloader = get_loaders(cifar10_train, cifar10_test)
     model = resnet32()
     criterion = nn.CrossEntropyLoss()
@@ -137,7 +139,7 @@ def main():
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     wandb.watch(model, log='all')
 
-    if(path.exists('checkpoint')):
+    if(path.exists('checkpoint_2')):
       model.load_state_dict(torch.load('checkpoint'))
       print('model loaded')
       test(model, device, testloader)
@@ -148,7 +150,7 @@ def main():
       print("*************************************************")
       train(model, trainloader, criterion, optimizer, scheduler, device, testloader, config.num_epochs)
           
-      torch.save(model, 'checkpoint')
+      torch.save(model.state_dict(), 'checkpoint_2')
       
     # for param in model.parameters():
     #   param.requires_grad = False

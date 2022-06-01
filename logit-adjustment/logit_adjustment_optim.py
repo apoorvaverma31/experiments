@@ -24,7 +24,6 @@ transform_test = transforms.Compose([
     transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
 ])
 cifar10_train = datasets.CIFAR10('/workspace/Datasets/CIFAR10/train', download=False, train=True, transform=transform_train)
-cifar10_test = datasets.CIFAR10('/workspace/Datasets/CIFAR10/train',download=False, train=False, transform=transform_test)
 
 num_classes = float(len(cifar10_train.classes))
 imbalance_ratio = 100.0
@@ -60,7 +59,6 @@ b = np.array([a[t] for t in y_train])
 sampler = torch.utils.data.WeightedRandomSampler(weights= b, num_samples = len(b), replacement = True)
 
 trainloader = torch.utils.data.DataLoader(cifar10_train, batch_size = 128,  num_workers=8, shuffle=True)
-testloader =  torch.utils.data.DataLoader(cifar10_test, batch_size=512, shuffle=True, num_workers=8, drop_last=True)
 model = resnet32()
 # model = nn.DataParallel(model)
 criterion = nn.CrossEntropyLoss()
@@ -70,6 +68,32 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 num_epochs = 200
 temp = 1.5
+# def make_lt_dataset(train_data, imbalance_ratio, inv=False):
+#     pi_list = []
+#     num_samples_0 = train_data.targets.count(0)
+#     num_classes = float(len(train_data.classes))
+#     imbalance_factor = math.exp(-math.log(imbalance_ratio)/(num_classes-1))
+#     all_indexes_seperate = []
+#     for i in range(10): # 10 
+#         i_indexes = [k for k, j in enumerate(train_data.targets) if j == i]
+#         if(inv):
+#           num_samples_i = int(num_samples_0 * (imbalance_factor)**(9-i))
+#         else:
+#           num_samples_i = int(num_samples_0 * (imbalance_factor)**(i))
+#         sample_indexes = random.sample(i_indexes, num_samples_i)
+#         pi_list.append(len(sample_indexes))
+#         all_indexes_seperate.append(sample_indexes)
+        
+#     all_indexes = sum(all_indexes_seperate, []) # collapse list
+#     pi_list_tensor = torch.tensor(pi_list) / len(all_indexes)
+#     sampled_images = train_data.data[all_indexes] 
+#     sampled_targets = np.array(train_data.targets)[all_indexes]
+#     train_data.data = sampled_images
+#     train_data.targets = list(sampled_targets)
+#     return train_data, pi_list_tensor
+cifar10_test = datasets.CIFAR10('/workspace/Datasets/CIFAR10/train',download=False, train=False, transform=transform_test)
+# cifar10_test = make_lt_dataset(cifar10_test, 100, inv=True)
+testloader =  torch.utils.data.DataLoader(cifar10_test, batch_size=512, shuffle=True, num_workers=8, drop_last=True)
 
 
 def ERM(trainloader, criterion, model, optimizer, scheduler, testloader):
@@ -193,8 +217,12 @@ def plot(X, y, title, x_label, y_label):
 if(__name__ == '__main__'):
     wandb.init(project="differential_tail", name="PostHoc_Balanced_Test", mode="disabled")
     wandb.watch(model, log='all')
-    ERM(trainloader, criterion, model, optimizer, scheduler, testloader)
-    torch.save(model.state_dict(), 'checkpoint')
+    # ERM(trainloader, criterion, model, optimizer, scheduler, testloader)
+    # torch.save(model.state_dict(), 'checkpoint')
+    model.load_state_dict(torch.load('checkpoint'))
+    print('model loaded')
+    model.eval()
+    test(testloader, model, 1)
     print('classifer normalized')
-    model.classifier_weight_norm(1.5)
+    model.classifier_weight_norm(2)
     test(testloader, model, 1)
