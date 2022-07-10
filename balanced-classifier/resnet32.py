@@ -80,7 +80,7 @@ class ResNet(nn.Module):
         self.layer3 = self._make_layer(num_layers[2], filters[2], strides[2])
         self.bn2 = batch_norm2d(self.in_planes)
         self.linear = nn.Linear(filters[2], num_classes)
-        self.lin_norm = nn.Parameter(torch.norm(self.linear.weight, dim=1, keepdim=True))
+        self.lin_norm = nn.Parameter(torch.linalg.norm(self.linear.weight, dim=1, keepdim=True))
         self.act = nn.ReLU()
         self.apply(_weights_init)
 
@@ -107,12 +107,7 @@ class ResNet(nn.Module):
         return out
     
     def classifier_weight_norm(self, tau):
-        print('before normalization weight norms')
-        print(torch.norm(self.linear.weight, dim=1, keepdim=True))
-        normalized = F.normalize(self.linear.weight, dim=1)
-        self.linear.weight = nn.Parameter(F.normalize(self.linear.weight, dim=1, p = tau))
-        print('post normalization weight norms')
-        print(torch.norm(normalized, dim=1, keepdim=True))
+        self.linear.weight = nn.Parameter(self.linear.weight/(self.lin_norm**tau))
         return self
 
 
@@ -126,4 +121,4 @@ if __name__ == "__main__":
 
     net = resnet32(10)
     rand_inp = torch.rand((1, 3, 32, 32))
-    # summary(net, rand_inp, print_summary=True, max_depth=3, show_parent_layers=True)
+    # summary(net, rand_inp, print_summary=True, max_depth=3, show_parent_layers=True)comment 1
